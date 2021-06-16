@@ -15,6 +15,7 @@ from scipy.special import softmax
 
 
 def main(args):
+    WORKING_DIR = args.working_dir
     result = list()
     content_path = args.content_path
     sys.path.append(content_path)
@@ -34,70 +35,84 @@ def main(args):
     fc_model.to(device)
     fc_model.eval()
 
-    train_data = np.load(os.path.join(content_path,"Model", "Epoch_{:d}".format(epoch_id),"umap_train_data.npy"))
-    test_data = np.load(os.path.join(content_path,"Model", "Epoch_{:d}".format(epoch_id), "umap_test_data.npy"))
-    border_points = np.load(os.path.join(content_path,"Model", "Epoch_{:d}".format(epoch_id), "umap_border_points.npy"))
-    train_embedding = np.load(os.path.join(content_path,"Model", "Epoch_{:d}".format(epoch_id), "umap_train_embedding.npy"))
-    test_embedding = np.load(os.path.join(content_path,"Model", "Epoch_{:d}".format(epoch_id), "umap_test_embedding.npy"))
-    border_embedding = np.load(os.path.join(content_path,"Model", "Epoch_{:d}".format(epoch_id), "umap_border_embedding.npy"))
-    train_recon = np.load(os.path.join(content_path,"Model", "Epoch_{:d}".format(epoch_id), "umap_train_recon.npy"))
-    test_recon = np.load(os.path.join(content_path,"Model", "Epoch_{:d}".format(epoch_id), "umap_test_recon.npy"))
+    METHOD = args.method
+    if METHOD == "umap" or "pca":
+        train_data = np.load(os.path.join(WORKING_DIR,"train_data.npy"))
+        test_data = np.load(os.path.join(WORKING_DIR, "test_data.npy"))
+        border_points = np.load(os.path.join(WORKING_DIR, "border_points.npy"))
+        train_embedding = np.load(os.path.join(WORKING_DIR, "train_embedding.npy"))
+        test_embedding = np.load(os.path.join(WORKING_DIR, "test_embedding.npy"))
+        border_embedding = np.load(os.path.join(WORKING_DIR, "border_embedding.npy"))
+        train_recon = np.load(os.path.join(WORKING_DIR, "train_recon.npy"))
+        test_recon = np.load(os.path.join(WORKING_DIR, "test_recon.npy"))
 
+        fitting_data = np.concatenate((train_data, test_data), axis=0)
+        fitting_embedding = np.concatenate((train_embedding, test_embedding), axis=0)
 
-    # result.append(round(t4-t0, 4))
-    #
-    fitting_data = np.concatenate((train_data, test_data), axis=0)
-    fitting_embedding = np.concatenate((train_embedding, test_embedding), axis=0)
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 15))
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 20))
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 30))
 
-    result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 15))
-    result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 20))
-    result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 30))
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(fitting_data, fitting_embedding, 15))
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(fitting_data, fitting_embedding, 20))
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(fitting_data, fitting_embedding, 30))
 
-    result.append(evaluate.evaluate_proj_nn_perseverance_knn(fitting_data, fitting_embedding, 15))
-    result.append(evaluate.evaluate_proj_nn_perseverance_knn(fitting_data, fitting_embedding, 20))
-    result.append(evaluate.evaluate_proj_nn_perseverance_knn(fitting_data, fitting_embedding, 30))
-    #
-    # result.append(evaluate.evaluate_inv_nn(train_data, train_recon, n_neighbors=15))
-    # result.append(evaluate.evaluate_inv_nn(train_data, train_recon, n_neighbors=20))
-    # result.append(evaluate.evaluate_inv_nn(train_data, train_recon, n_neighbors=30))
-    #
-    # result.append(evaluate.evaluate_inv_nn(fitting_data, fitting_embedding, n_neighbors=15))
-    # result.append(evaluate.evaluate_inv_nn(fitting_data, fitting_embedding, n_neighbors=20))
-    # result.append(evaluate.evaluate_inv_nn(fitting_data, fitting_embedding, n_neighbors=30))
+        ori_pred = softmax(utils.batch_run(fc_model, torch.from_numpy(train_data).to(device), 10), axis=1)
+        new_pred = softmax(utils.batch_run(fc_model, torch.from_numpy(train_recon).to(device), 10), axis=1)
+        ori_label = ori_pred.argmax(-1).astype(np.int)
+        result.append(evaluate.evaluate_inv_accu(ori_pred.argmax(-1), new_pred.argmax(-1)))
+        result.append(evaluate.evaluate_inv_conf(ori_label, ori_pred, new_pred))
 
-    ori_pred = softmax(utils.batch_run(fc_model, torch.from_numpy(train_data).to(device), 10), axis=1)
-    new_pred = softmax(utils.batch_run(fc_model, torch.from_numpy(train_recon).to(device), 10), axis=1)
-    ori_label = ori_pred.argmax(-1).astype(np.int)
-    result.append(evaluate.evaluate_inv_accu(ori_pred.argmax(-1), new_pred.argmax(-1)))
-    result.append(evaluate.evaluate_inv_conf(ori_label, ori_pred, new_pred))
+        ori_pred = softmax(utils.batch_run(fc_model, torch.from_numpy(test_data).to(device), 10), axis=1)
+        new_pred = softmax(utils.batch_run(fc_model, torch.from_numpy(test_recon).to(device), 10), axis=1)
+        ori_label = ori_pred.argmax(-1).astype(np.int)
+        result.append(evaluate.evaluate_inv_accu(ori_pred.argmax(-1), new_pred.argmax(-1)))
+        result.append(evaluate.evaluate_inv_conf(ori_label, ori_pred, new_pred))
 
-    ori_pred = softmax(utils.batch_run(fc_model, torch.from_numpy(test_data).to(device), 10), axis=1)
-    new_pred = softmax(utils.batch_run(fc_model, torch.from_numpy(test_recon).to(device), 10), axis=1)
-    ori_label = ori_pred.argmax(-1).astype(np.int)
-    result.append(evaluate.evaluate_inv_accu(ori_pred.argmax(-1), new_pred.argmax(-1)))
-    result.append(evaluate.evaluate_inv_conf(ori_label, ori_pred, new_pred))
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
+                                                             15))
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
+                                                             20))
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
+                                                             30))
 
-    result.append(
-        evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
-                                                         15))
-    result.append(
-        evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
-                                                         20))
-    result.append(
-        evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
-                                                         30))
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(test_data, test_embedding, border_points, border_embedding,
+                                                             15))
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(test_data, test_embedding, border_points, border_embedding,
+                                                             20))
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(test_data, test_embedding, border_points, border_embedding,
+                                                             30))
+        with open(os.path.join(WORKING_DIR, "exp_result.json"), "w") as f:
+            json.dump(result, f)
+    elif METHOD == "tsne":
+        train_data = np.load(os.path.join(WORKING_DIR,"train_data.npy"))
+        border_points = np.load(os.path.join(WORKING_DIR, "border_points.npy"))
+        train_embedding = np.load(os.path.join(WORKING_DIR, "train_embedding.npy"))
+        border_embedding = np.load(os.path.join(WORKING_DIR, "border_embedding.npy"))
 
-    result.append(
-        evaluate.evaluate_proj_boundary_perseverance_knn(test_data, test_embedding, border_points, border_embedding,
-                                                         15))
-    result.append(
-        evaluate.evaluate_proj_boundary_perseverance_knn(test_data, test_embedding, border_points, border_embedding,
-                                                         20))
-    result.append(
-        evaluate.evaluate_proj_boundary_perseverance_knn(test_data, test_embedding, border_points, border_embedding,
-                                                         30))
-    with open(os.path.join(content_path, "umap_{:d}_exp_result.json".format(epoch_id)), "w") as f:
-        json.dump(result, f)
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 15))
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 20))
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 30))
+
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
+                                                             15))
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
+                                                             20))
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
+                                                             30))
+
+        with open(os.path.join(WORKING_DIR, "exp_result.json"), "w") as f:
+            json.dump(result, f)
+
 
 
 if __name__ == "__main__":
@@ -107,6 +122,8 @@ if __name__ == "__main__":
     parser.add_argument("--epoch_id", type=int, default=200)
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--advance_attack", type=int, default=0, choices=[0, 1])
+    parser.add_argument("--working_dir", type=str)
+    parser.add_argument("--method", type=str, choices=["umap", "tsne", "pca"])
     args = parser.parse_args()
     main(args)
 
