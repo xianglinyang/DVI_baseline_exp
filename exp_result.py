@@ -36,7 +36,7 @@ def main(args):
     fc_model.eval()
 
     METHOD = args.method
-    if METHOD == "umap" or "pca":
+    if METHOD == "umap" or METHOD == "pca":
         train_data = np.load(os.path.join(WORKING_DIR,"train_data.npy"))
         test_data = np.load(os.path.join(WORKING_DIR, "test_data.npy"))
         border_points = np.load(os.path.join(WORKING_DIR, "border_points.npy"))
