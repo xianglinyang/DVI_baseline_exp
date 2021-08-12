@@ -21,8 +21,15 @@ def main(args):
 
     CONTENT_PATH = args.content_path
     sys.path.append(CONTENT_PATH)
-    from Model.model import resnet18
-    net = resnet18()
+    try:
+        from Model.model import resnet50
+        net = resnet50()
+        dim = 2048
+    except:
+        from Model.model import resnet18
+        net = resnet18()
+        dim = 512
+
 
     EPOCH = args.epoch_id
     DEVICE = torch.device(args.device)
@@ -51,8 +58,8 @@ def main(args):
     fc_model.to(DEVICE)
     fc_model.eval()
 
-    train_data = utils.batch_run(repr_model, train_data, 512)
-    test_data = utils.batch_run(repr_model, test_data, 512)
+    train_data = utils.batch_run(repr_model, train_data, dim)
+    test_data = utils.batch_run(repr_model, test_data, dim)
     time_consume = dict()
     if METHOD == "umap":
         OUTPUT_PATH = os.path.join(OUTPUT_PATH,"umap")
@@ -62,24 +69,24 @@ def main(args):
         reducer = umap.UMAP(random_state=42)
         t0 = time.time()
         fitting_data = np.concatenate((train_data, border_points), axis=0)
-        reducer.fit(fitting_data)
+        fitting_embedding = reducer.fit_transform(fitting_data)
         t1 = time.time()
+        time_consume["fit_transfrom"]=str(t1-t0)
+        train_embedding = fitting_embedding[:len(train_data)]
+        border_embedding = fitting_embedding[len(train_data):]
 
-        print(t1-t0)
-        time_consume["fit"]=str(t1-t0)
-        train_embedding = reducer.transform(train_data)
         test_embedding = reducer.transform(test_data)
-        border_embedding = reducer.transform(border_points)
         t2 = time.time()
-        time_consume["transform"]=str(t2-t1)
+        time_consume["transform_test"] = str(t2-t1)
+
         train_recon = reducer.inverse_transform(train_embedding)
         t3 = time.time()
-        print(t3-t2)
         time_consume["recon_train"]=str(t3-t2)
+
         test_recon = reducer.inverse_transform(test_embedding)
         t4 = time.time()
-        print(t4-t3)
         time_consume["recon_test"]=str(t4-t3)
+
         out_dir = os.path.join(OUTPUT_PATH, OUTPUT_DIR)
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
@@ -94,6 +101,7 @@ def main(args):
         np.save(os.path.join(out_dir,"test_recon.npy"), test_recon)
         with open(os.path.join(out_dir,"time.json"),"w") as f:
             json.dump(time_consume, f)
+
     elif METHOD == "tsne":
         from sklearn.manifold import TSNE
         # from openTSNE import TSNE
@@ -129,6 +137,7 @@ def main(args):
         np.save(os.path.join(out_dir,"border_embedding.npy"), border_embedding)
         with open(os.path.join(out_dir,"time.json"), "w") as f:
             json.dump(time_consume, f)
+
     elif METHOD == "pca":
         OUTPUT_PATH = os.path.join(OUTPUT_PATH,"pca")
         if not os.path.exists(OUTPUT_PATH):
@@ -137,24 +146,24 @@ def main(args):
         reducer = PCA(n_components=2)
         t0 = time.time()
         fitting_data = np.concatenate((train_data, border_points), axis=0)
-        reducer.fit(fitting_data)
+        fitting_embedding = reducer.fit_transform(fitting_data)
         t1 = time.time()
 
-        print(t1-t0)
-        time_consume["fit"]=str(t1-t0)
-        train_embedding = reducer.transform(train_data)
-        test_embedding = reducer.transform(test_data)
-        border_embedding = reducer.transform(border_points)
+        time_consume["fit_transfrom"] = str(t1-t0)
+        train_embedding = fitting_embedding[:len(train_data)]
+        border_embedding = fitting_embedding[len(train_data):]
+
         t2 = time.time()
-        time_consume["transform"]=str(t2-t1)
-        train_recon = reducer.inverse_transform(train_embedding)
+        test_embedding = reducer.transform(test_data)
+        time_consume["transform_test"] = str(t2-t1)
+
         t3 = time.time()
-        print(t3-t2)
-        time_consume["recon_train"]=str(t3-t2)
-        test_recon = reducer.inverse_transform(test_embedding)
+        train_recon = reducer.inverse_transform(train_embedding)
         t4 = time.time()
-        print(t4-t3)
-        time_consume["recon_test"]=str(t4-t3)
+        time_consume["recon_train"] = str(t4-t3)
+        test_recon = reducer.inverse_transform(test_embedding)
+        t5 = time.time()
+        time_consume["recon_test"] = str(t5-t4)
         out_dir = os.path.join(OUTPUT_PATH, OUTPUT_DIR)
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
@@ -169,7 +178,6 @@ def main(args):
         np.save(os.path.join(out_dir,"test_recon.npy"), test_recon)
         with open(os.path.join(out_dir,"time.json"),"w") as f:
             json.dump(time_consume, f)
-
 
 
 if __name__ == "__main__":

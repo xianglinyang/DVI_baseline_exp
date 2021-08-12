@@ -19,8 +19,13 @@ def main(args):
     result = list()
     content_path = args.content_path
     sys.path.append(content_path)
-    from Model.model import resnet18
-    net = resnet18()
+    try:
+        from Model.model import resnet50
+        net = resnet50()
+    except:
+        from Model.model import resnet18
+        net = resnet18()
+
 
     epoch_id = args.epoch_id
     device = torch.device(args.device)
@@ -49,13 +54,13 @@ def main(args):
         fitting_data = np.concatenate((train_data, test_data), axis=0)
         fitting_embedding = np.concatenate((train_embedding, test_embedding), axis=0)
 
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 10))
         result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 15))
         result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 20))
-        result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 30))
 
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(fitting_data, fitting_embedding, 10))
         result.append(evaluate.evaluate_proj_nn_perseverance_knn(fitting_data, fitting_embedding, 15))
         result.append(evaluate.evaluate_proj_nn_perseverance_knn(fitting_data, fitting_embedding, 20))
-        result.append(evaluate.evaluate_proj_nn_perseverance_knn(fitting_data, fitting_embedding, 30))
 
         ori_pred = softmax(utils.batch_run(fc_model, torch.from_numpy(train_data).to(device), 10), axis=1)
         new_pred = softmax(utils.batch_run(fc_model, torch.from_numpy(train_recon).to(device), 10), axis=1)
@@ -71,23 +76,23 @@ def main(args):
 
         result.append(
             evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
+                                                             10))
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
                                                              15))
         result.append(
             evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
                                                              20))
-        result.append(
-            evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
-                                                             30))
 
         result.append(
             evaluate.evaluate_proj_boundary_perseverance_knn(test_data, test_embedding, border_points, border_embedding,
+                                                             10))
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(test_data, test_embedding, border_points, border_embedding,
                                                              15))
         result.append(
             evaluate.evaluate_proj_boundary_perseverance_knn(test_data, test_embedding, border_points, border_embedding,
                                                              20))
-        result.append(
-            evaluate.evaluate_proj_boundary_perseverance_knn(test_data, test_embedding, border_points, border_embedding,
-                                                             30))
         with open(os.path.join(WORKING_DIR, "exp_result.json"), "w") as f:
             json.dump(result, f)
     elif METHOD == "tsne":
@@ -96,19 +101,19 @@ def main(args):
         train_embedding = np.load(os.path.join(WORKING_DIR, "train_embedding.npy"))
         border_embedding = np.load(os.path.join(WORKING_DIR, "border_embedding.npy"))
 
+        result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 10))
         result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 15))
         result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 20))
-        result.append(evaluate.evaluate_proj_nn_perseverance_knn(train_data, train_embedding, 30))
 
+        result.append(
+            evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
+                                                             10))
         result.append(
             evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
                                                              15))
         result.append(
             evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
                                                              20))
-        result.append(
-            evaluate.evaluate_proj_boundary_perseverance_knn(train_data, train_embedding, border_points, border_embedding,
-                                                             30))
 
         with open(os.path.join(WORKING_DIR, "exp_result.json"), "w") as f:
             json.dump(result, f)
