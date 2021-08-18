@@ -21,11 +21,11 @@ def main(args):
 
     CONTENT_PATH = args.content_path
     sys.path.append(CONTENT_PATH)
-    try:
+    if args.dim == 2048:
         from Model.model import resnet50
         net = resnet50()
         dim = 2048
-    except:
+    else:
         from Model.model import resnet18
         net = resnet18()
         dim = 512
@@ -189,6 +189,7 @@ if __name__ == "__main__":
     parser.add_argument("--advance_attack", type=int, default=0, choices=[0, 1])
     parser.add_argument("--method", type=str, choices=["umap", "tsne", "pca"])
     parser.add_argument("--output_dir", type=str)
+    parser.add_argument("--dim", type=int, default=512)
     args = parser.parse_args()
     main(args)
 
