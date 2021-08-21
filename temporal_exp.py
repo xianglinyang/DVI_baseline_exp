@@ -1,6 +1,8 @@
 """
 This is the experiment for baseline umap on temporal_preserving
 """
+import json
+
 import umap
 import os
 import argparse
@@ -66,7 +68,7 @@ def temporal_preserving_train(args, n_neighbors):
     PERIOD = args.p
     OUTPUT_PATH = os.path.join(".", "results", "temporal")
 
-    l = 50000
+    l = args.train_l
     eval_num = int((END - START) / PERIOD)
     alpha = np.zeros((eval_num, l))
     delta_x = np.zeros((eval_num, l))
@@ -88,6 +90,46 @@ def temporal_preserving_train(args, n_neighbors):
     val_corr = evaluate.evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
     return val_corr
 
+def temporal_preserving_test(args, n_neighbors):
+    """evalute training temporal preserving property"""
+    DATASET = args.dataset
+    START = args.s
+    END = args.e
+    PERIOD = args.p
+    OUTPUT_PATH = os.path.join(".", "results", "temporal")
+
+    train_l = args.train_l
+    test_l = args.test_l
+    l = train_l + test_l
+    eval_num = int((END - START) / PERIOD)
+    alpha = np.zeros((eval_num, l))
+    delta_x = np.zeros((eval_num, l))
+    for epoch in range(START+PERIOD, END+1, PERIOD):
+        prev_dir = os.path.join(OUTPUT_PATH, DATASET+"_"+str(epoch-PERIOD))
+        prev_train_embedding = np.load(os.path.join(prev_dir, "embedding.npy"))[:train_l]
+        prev_test = np.load(os.path.join(prev_dir, "test_data.npy"))
+        prev_data = np.load(os.path.join(prev_dir, "train_data.npy"))
+        prev_test_embedding = np.load(os.path.join(prev_dir, "test_embedding.npy"))
+        prev = np.concatenate((prev_data, prev_test), axis=0)
+        prev_embedding = np.concatenate((prev_train_embedding, prev_test_embedding), axis=0)
+
+        curr_dir = os.path.join(OUTPUT_PATH, DATASET+"_"+str(epoch))
+        curr_train_embedding = np.load(os.path.join(curr_dir, "embedding.npy"))[:train_l]
+        curr_data = np.load(os.path.join(curr_dir, "train_data.npy"))
+        curr_test = np.load(os.path.join(curr_dir, "test_data.npy"))
+        curr_test_embedding = np.load(os.path.join(curr_dir, "test_embedding.npy"))
+        curr = np.concatenate((curr_data, curr_test), axis=0)
+        curr_embedding = np.concatenate((curr_train_embedding, curr_test_embedding), axis=0)
+
+        alpha_ = evaluate.find_neighbor_preserving_rate(prev, curr, n_neighbors)
+        delta_x_ = np.linalg.norm(prev_embedding - curr_embedding, axis=1)
+
+        alpha[int((epoch - START) / PERIOD - 1)] = alpha_
+        delta_x[int((epoch - START) / PERIOD - 1)] = delta_x_
+
+    val_corr = evaluate.evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
+    return val_corr
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -99,6 +141,12 @@ if __name__ == "__main__":
     parser.add_argument("-s", type=int, help="starting epoch")
     parser.add_argument("-e", type=int, help="ending epoch")
     parser.add_argument("-p", type=int, help="period")
+    parser.add_argument("--train_l", type=int, help="length of training dataset")
+    parser.add_argument("--test_l", type=int, help="length of testing dataset")
     args = parser.parse_args()
     main(args)
-    print(temporal_preserving_train(args, n_neighbors=15))
+    t = dict()
+    t["temporal_train"] = temporal_preserving_train(args, n_neighbors=15)
+    t["temporal_test"] = temporal_preserving_test(args, n_neighbors=15)
+    with open("{}.json".format(args.dataset)) as f:
+        json.dump(t, f)
