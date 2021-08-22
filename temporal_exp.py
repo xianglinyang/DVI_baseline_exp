@@ -60,6 +60,12 @@ def main(args):
         np.save(os.path.join(out_dir, "embedding.npy"), fitting_embedding)
         np.save(os.path.join(out_dir, "test_embedding.npy"), test_embedding)
 
+    t = dict()
+    t["temporal_train"] = temporal_preserving_train(args, n_neighbors=15)
+    t["temporal_test"] = temporal_preserving_test(args, n_neighbors=15)
+    with open("{}.json".format(args.dataset)) as f:
+        json.dump(t, f)
+
 def temporal_preserving_train(args, n_neighbors):
     """evalute training temporal preserving property"""
     DATASET = args.dataset
@@ -145,8 +151,3 @@ if __name__ == "__main__":
     parser.add_argument("--test_l", type=int, help="length of testing dataset")
     args = parser.parse_args()
     main(args)
-    t = dict()
-    t["temporal_train"] = temporal_preserving_train(args, n_neighbors=15)
-    t["temporal_test"] = temporal_preserving_test(args, n_neighbors=15)
-    with open("{}.json".format(args.dataset)) as f:
-        json.dump(t, f)
