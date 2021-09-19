@@ -61,9 +61,10 @@ def main(args):
         np.save(os.path.join(out_dir, "test_embedding.npy"), test_embedding)
 
     t = dict()
-    t["temporal_train"] = temporal_preserving_train(args, n_neighbors=15)
-    t["temporal_test"] = temporal_preserving_test(args, n_neighbors=15)
-    with open("{}.json".format(args.dataset)) as f:
+    for k in [10, 15, 20]:
+        t["temporal_train_{}".format(k)] = temporal_preserving_train(args, n_neighbors=k)
+        t["temporal_test_{}".format(k)] = temporal_preserving_test(args, n_neighbors=k)
+    with open("{}.json".format(args.dataset+"_"+str(+args.dim)), "w") as f:
         json.dump(t, f)
 
 def temporal_preserving_train(args, n_neighbors):
